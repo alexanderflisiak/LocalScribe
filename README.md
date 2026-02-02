@@ -80,4 +80,4 @@ graph TD
 
 ## 🛡️ License
 
-MIT © [Your Name]
+MIT © [Alexander Flisiak]
