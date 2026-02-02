@@ -10,7 +10,11 @@
 ![Tailwind](https://img.shields.io/badge/Tailwind-4.0-38B2AC?style=flat-square&logo=tailwindcss&logoColor=white)
 
 
+
 **Local Scribe** is a privacy-first, verified offline meeting assistant tailored for **Apple Silicon**. It records, transcribes, identifies speakers (Diarization), and summarizes conversations—all without sending a single byte of data to the cloud.
+
+![Local Scribe Demo](demo.png)
+*Minimalist interface showing real-time transcription and speaker identification.*
 
 ---
 
