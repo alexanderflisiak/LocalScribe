@@ -1,0 +1,28 @@
+#!/bin/bash
+# MacOS Sidecar Wrapper for Development
+
+# Error handling
+set -e
+
+# Get absolute path to the script directory
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+
+# Resolve project root (src-tauri/bin -> src-tauri -> root)
+PROJECT_ROOT=$(cd "$SCRIPT_DIR/../../" && pwd)
+
+# Path to virtual environment and main script
+VENV_PATH="$PROJECT_ROOT/sidecar/.venv"
+MAIN_SCRIPT="$PROJECT_ROOT/sidecar/main.py"
+
+# Check if venv exists
+if [ ! -d "$VENV_PATH" ]; then
+    echo "Error: Virtual environment not found at $VENV_PATH" >&2
+    exit 1
+fi
+
+# Activate virtual environment
+source "$VENV_PATH/bin/activate"
+
+# Run the python script with all arguments
+# We use 'exec' to replace the shell process with python
+exec python "$MAIN_SCRIPT" "$@"

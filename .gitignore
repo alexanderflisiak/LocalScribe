@@ -1,0 +1,40 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local Scribe Specifics
+.credentials
+*.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+local_scribe.db
+
+# Python Sidecar
+sidecar/__pycache__/
+sidecar/venv/
+sidecar/.pytest_cache/
+sidecar/dist/
+sidecar/build/
+*.spec
