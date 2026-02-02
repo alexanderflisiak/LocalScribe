@@ -75,7 +75,8 @@ npm run tauri dev
 
 ```mermaid
 graph TD
-    UI[React Frontend] <-->|Commands/Events| Rust[Tauri Rust Backend]
+    UI[React Frontend] <-->|save_audio| Rust[Tauri Rust Backend]
+    Rust <-->|Events| UI
     Rust <-->|Stdin/Stdout| Py[Python Sidecar]
     Py -->|Load| Models[SenseVoice & Pyannote]
     Rust <-->|HTTP| Ollama[Local LLM]

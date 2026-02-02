@@ -101,7 +101,8 @@ pub async fn summarize_text(text: String) -> Result<String, String> {
             e.to_string()
         })?;
 
-    if res.status().is_success() {
+    let status = res.status();
+    if status.is_success() {
         let body: Value = res.json().await.map_err(|e| e.to_string())?;
         match body["response"].as_str() {
             Some(response) => {
@@ -114,8 +115,61 @@ pub async fn summarize_text(text: String) -> Result<String, String> {
             }
         }
     } else {
-        let status = res.status();
         println!("Ollama API returned error: {}", status);
         Err(format!("Ollama API error: {}", status))
     }
+}
+
+/// Saves the audio payload to the AppData/recordings directory.
+///
+/// # Arguments
+/// * `app` - AppHandle to access paths.
+/// * `payload` - The raw bytes of the audio file.
+/// * `filename` - The desired filename (e.g., "recording-123.webm").
+///
+/// # Returns
+/// * `Ok(String)` - Absolute path to the saved file.
+/// * `Err(String)` - Error message.
+#[command]
+pub async fn save_audio<R: Runtime>(
+    app: AppHandle<R>,
+    payload: Vec<u8>,
+    filename: String,
+) -> Result<String, String> {
+    use std::io::Write;
+    use tauri::Manager;
+
+    println!("Saving audio file: {} ({} bytes)", filename, payload.len());
+
+    let app_data_dir = app.path().app_data_dir().map_err(|e| {
+        let msg = format!("Failed to resolve AppData dir: {}", e);
+        println!("{}", msg);
+        msg
+    })?;
+
+    let recordings_dir = app_data_dir.join("recordings");
+    if !recordings_dir.exists() {
+        std::fs::create_dir_all(&recordings_dir).map_err(|e| {
+            let msg = format!("Failed to create recordings dir: {}", e);
+            println!("{}", msg);
+            msg
+        })?;
+    }
+
+    let file_path = recordings_dir.join(&filename);
+    let mut file = std::fs::File::create(&file_path).map_err(|e| {
+        let msg = format!("Failed to create file: {}", e);
+        println!("{}", msg);
+        msg
+    })?;
+
+    file.write_all(&payload).map_err(|e| {
+        let msg = format!("Failed to write file content: {}", e);
+        println!("{}", msg);
+        msg
+    })?;
+
+    let absolute_path = file_path.to_string_lossy().to_string();
+    println!("File saved successfully to: {}", absolute_path);
+    Ok(absolute_path)
 }

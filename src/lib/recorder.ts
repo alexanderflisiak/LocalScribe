@@ -1,61 +1,108 @@
-import { BaseDirectory, writeFile, mkdir } from '@tauri-apps/plugin-fs';
-import { appDataDir, join } from '@tauri-apps/api/path';
 
-export class AudioRecorder {
-    private mediaRecorder: MediaRecorder | null = null;
-    private audioChunks: Blob[] = [];
+import { useState, useRef, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
-    async start(): Promise<void> {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        this.mediaRecorder = new MediaRecorder(stream);
-        this.audioChunks = [];
+export interface UseAudioRecorderReturn {
+    isRecording: boolean;
+    duration: number;
+    startRecording: () => Promise<void>;
+    stopRecording: () => Promise<string | null>;
+    error: string | null;
+}
 
-        this.mediaRecorder.ondataavailable = (event) => {
-            this.audioChunks.push(event.data);
-        };
+export function useAudioRecorder(): UseAudioRecorderReturn {
+    const [isRecording, setIsRecording] = useState(false);
+    const [duration, setDuration] = useState(0);
+    const [error, setError] = useState<string | null>(null);
 
-        this.mediaRecorder.start();
-    }
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const timerRef = useRef<number | null>(null);
 
-    async stop(): Promise<string> {
-        return new Promise((resolve, reject) => {
-            if (!this.mediaRecorder) {
-                reject(new Error('Recorder not initialized'));
-                return;
-            }
+    const startRecording = useCallback(async () => {
+        try {
+            setError(null);
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            this.mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                const arrayBuffer = await audioBlob.arrayBuffer();
-                const uint8Array = new Uint8Array(arrayBuffer);
+            const mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm'
+            });
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
 
-                try {
-                    // Ensure directory exists
-                    const appData = await appDataDir();
-
-                    // Critical: Create the directory if it doesn't exist
-                    await mkdir("", {
-                        baseDir: BaseDirectory.AppData,
-                        recursive: true
-                    }).catch(() => { }); // Ignore if exists (or handle specific error)
-
-                    // Generate filename
-                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                    const filename = `recording-${timestamp}.webm`;
-
-                    // Write to AppData root
-                    await writeFile(filename, uint8Array, { baseDir: BaseDirectory.AppData });
-
-                    // Resolve absolute path for the sidecar
-                    const absolutePath = await join(appData, filename);
-
-                    resolve(absolutePath);
-                } catch (error) {
-                    reject(error);
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
                 }
             };
 
-            this.mediaRecorder.stop();
+            mediaRecorder.start(100); // Collect 100ms chunks
+            setIsRecording(true);
+
+            // Start timer
+            const startTime = Date.now();
+            timerRef.current = window.setInterval(() => {
+                setDuration(Math.floor((Date.now() - startTime) / 1000));
+            }, 1000);
+
+        } catch (err: any) {
+            console.error("Error starting recording:", err);
+            setError(`Failed to start: ${err.message || err}`);
+            setIsRecording(false);
+        }
+    }, []);
+
+    const stopRecording = useCallback(async (): Promise<string | null> => {
+        return new Promise((resolve) => {
+            if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+                resolve(null);
+                return;
+            }
+
+            mediaRecorderRef.current.onstop = async () => {
+                setIsRecording(false);
+                if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                }
+                setDuration(0);
+
+                const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const arrayBuffer = await blob.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                const payload = Array.from(uint8Array);
+
+                // Cleanup tracks
+                mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+
+                try {
+                    const filename = `recording-${Date.now()}.webm`;
+                    console.log(`Invoking save_audio for ${filename} (${payload.length} bytes)`);
+
+                    // Direct invoke call
+                    const path = await invoke<string>('save_audio', {
+                        payload,
+                        filename
+                    });
+
+                    console.log("File saved at:", path);
+                    resolve(path);
+                } catch (err: any) {
+                    console.error("Failed to save audio:", err);
+                    setError(`Failed to save: ${err.message || err}`);
+                    resolve(null);
+                }
+            };
+
+            mediaRecorderRef.current.stop();
         });
-    }
+    }, []);
+
+    return {
+        isRecording,
+        duration,
+        startRecording,
+        stopRecording,
+        error
+    };
 }

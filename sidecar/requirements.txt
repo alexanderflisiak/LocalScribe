@@ -1,0 +1,7 @@
+# Generated from pyproject.toml
+torch
+torchaudio
+funasr
+modelscope
+orjson
+pyannote-audio>=3.4.0

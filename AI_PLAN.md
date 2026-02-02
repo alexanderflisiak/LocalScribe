@@ -10,7 +10,7 @@ The app records audio, identifies speakers (Diarization), transcribes text, and 
 - **Database:** SQLite (via `tauri-plugin-sql`) - Single file storage (`local_scribe.db`).
 - **AI Orchestration:**
   - **Text:** Ollama (serving `qwen2.5-coder:7b` locally).
-  - **Audio:** Python Sidecar (packaged via PyInstaller).
+  - **Audio:** Python Sidecar (`sidecar/`) packaged via PyInstaller.
   - **Models:** `SenseVoiceSmall` (STT) and `Pyannote 3.1` (Diarization).
 
 ## 3. Architecture & Data Flow
@@ -18,6 +18,7 @@ The app records audio, identifies speakers (Diarization), transcribes text, and 
    - Saves `.webm` chunks to `$APPDATA/recordings/`.
    - Writes metadata to SQLite.
 2. **Backend (Tauri/Rust):** - Spawns the Python Sidecar as a child process.
+   - Handles file saving via `save_audio` command (bypassing flaky JS filesystem APIs).
    - Bridges events between Python (stdout) and React (window events).
 3. **Sidecar (Python):** - Inputs: Audio file path.
    - Outputs: JSON object with segments `[{ start, end, text, speaker_id }]`.
@@ -26,7 +27,7 @@ The app records audio, identifies speakers (Diarization), transcribes text, and 
 ## 4. Current Progress
 - [x] Tauri v2 initialized.
 - [x] SQLite database wired (`src/lib/db.ts`) with basic CRUD.
-- [x] Audio Recorder implemented (`src/lib/recorder.ts`) saving to AppData.
+- [x] Audio Recorder implemented (`src/lib/recorder.ts`) as `useAudioRecorder` hook, saving to AppData via Rust command `save_audio`.
 - [x] Python Sidecar implemented (`sidecar/main.py`) with SenseVoice.
 - [x] Integrate Local LLM (Ollama) for Summarization.
 - [x] Implement Audio Diarization (Pyannote).
