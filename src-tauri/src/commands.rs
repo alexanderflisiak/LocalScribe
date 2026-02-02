@@ -3,6 +3,19 @@ use tauri::command;
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_shell::ShellExt;
 
+/// Transcribes an audio file using the Python Sidecar.
+///
+/// Spawns the `api-sidecar` binary as a child process.
+/// It automatically injects the `HF_TOKEN` environment variable if found
+/// in the system environment or a local `.credentials` file.
+///
+/// # Arguments
+/// * `app` - The Tauri App Handle (used to spawn sidecar).
+/// * `file_path` - Absolute path to the .webm audio file.
+///
+/// # Returns
+/// * `Ok(Value)` - JSON object containing transcribed segments.
+/// * `Err(String)` - Error message if sidecar fails or file is missing.
 #[command]
 pub async fn transcribe_audio<R: Runtime>(
     app: AppHandle<R>,
@@ -18,7 +31,8 @@ pub async fn transcribe_audio<R: Runtime>(
     if let Ok(token) = std::env::var("HF_TOKEN") {
         sidecar_command = sidecar_command.env("HF_TOKEN", token);
     } else {
-        // Try to read from .credentials file in project root
+        // Fallback: Check for a local `.credentials` file (useful for dev/portable setups).
+        // This allows users to provide tokens without polluting global env vars.
         let paths = vec!["../.credentials", ".credentials"];
         for path in paths {
             if let Ok(content) = std::fs::read_to_string(path) {
@@ -58,6 +72,17 @@ pub async fn transcribe_audio<R: Runtime>(
     }
 }
 
+/// Generates a concise summary of the provided text using a local Ollama instance.
+///
+/// Connects to `http://localhost:11434/api/generate` and uses the
+/// `qwen2.5-coder:7b` model to process the transcript.
+///
+/// # Arguments
+/// * `text` - The full transcript text to summarize.
+///
+/// # Returns
+/// * `Ok(String)` - The generated summary text.
+/// * `Err(String)` - Network error or Ollama API failure message.
 #[command]
 pub async fn summarize_text(text: String) -> Result<String, String> {
     println!("Summarizing text (length: {})", text.len());

@@ -5,6 +5,14 @@ import type { SidecarOutput, HelperSegment } from "./lib/types";
 
 const recorder = new AudioRecorder();
 
+/**
+ * Main Application Component.
+ *
+ * Orchestrates the user flow:
+ * 1. Recording Audio (via `AudioRecorder`)
+ * 2. Transcribing File (via Tauri `transcribe_audio` command)
+ * 3. Summarizing Text (via Tauri `summarize_text` command / Ollama)
+ */
 function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState<HelperSegment[]>([]);
@@ -21,6 +29,10 @@ function App() {
     }
   }, [transcription]);
 
+  /**
+   * Starts the audio recording session.
+   * Resets previous state (transcription, summary) for a fresh start.
+   */
   async function startRecording() {
     try {
       await recorder.start();
@@ -43,6 +55,10 @@ function App() {
     }
   }
 
+  /**
+   * Invokes the Python sidecar to transcribe the recorded file.
+   * Handles the `SidecarOutput` and maps it to the UI state.
+   */
   async function transcribe() {
     if (!audioPath) return;
 
@@ -126,8 +142,8 @@ function App() {
             onClick={transcribe}
             disabled={!audioPath || isRecording || isLoading}
             className={`text-sm font-medium px-3 py-1.5 rounded transition-colors ${(!audioPath || isRecording || isLoading)
-                ? 'text-slate-300 cursor-not-allowed'
-                : 'text-slate-600 hover:bg-slate-100'
+              ? 'text-slate-300 cursor-not-allowed'
+              : 'text-slate-600 hover:bg-slate-100'
               }`}
           >
             {isLoading ? "Transcribing..." : "Transcribe"}
@@ -137,8 +153,8 @@ function App() {
             onClick={summarize}
             disabled={transcription.length === 0 || isSummarizing || isRecording}
             className={`text-sm font-medium px-3 py-1.5 rounded transition-colors ${(transcription.length === 0 || isSummarizing || isRecording)
-                ? 'text-slate-300 cursor-not-allowed'
-                : 'text-slate-600 hover:bg-slate-100'
+              ? 'text-slate-300 cursor-not-allowed'
+              : 'text-slate-600 hover:bg-slate-100'
               }`}
           >
             {isSummarizing ? "Summarizing..." : "Summarize API"}

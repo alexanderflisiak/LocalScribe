@@ -11,11 +11,22 @@ import torch
 from funasr import AutoModel
 from pyannote.audio import Pipeline
 
-# Strict Manifest Compliance:
-# - No print() allowed. Use logger (stderr).
-# - Output must be JSON to stdout.
-# - Use orjson.
-# - Typed signatures.
+"""
+Local Scribe Sidecar (Python)
+
+This module serves as the AI processing engine for Local Scribe.
+It is designed to be packaged as a standalone binary (via PyInstaller)
+and communicates with the Rust backend purely via STDIN/STDOUT using JSON.
+
+Responsibilities:
+1.  Load ASR Models (SenseVoiceSmall) on the optimal device (MPS/CPU).
+2.  Load Diarization Pipeline (Pyannote 3.1) using an HF_TOKEN.
+3.  Process audio files to produce speaker-labeled transcripts.
+"""
+
+# Compliance:
+# - Strict JSON output (via orjson)
+# - No print() debugging (only stderr logging)
 
 # Configure logging to stderr
 logging.basicConfig(
@@ -123,22 +134,22 @@ class TranscriptionService:
             except Exception as e:
                 logger.error(f"Diarization failed: {e}")
 
-        # --- Step 3: Minimal Merge (MVP) ---
-        # Since SenseVoiceSmall default output is often just "text" without segment timestamps in this simple usage,
-        # we will:
-        # 1. If we have speakers, list them as metadata or separate segments if possible.
-        # 2. To strictly adhere to contract (start, end, speaker_id), we need distinct segments.
-        # 
-        # Hack solution for MVP without word-timestamps:
-        # If we have speakers, we output the TEXT as one meaningful segment, and list the MAIN SPEAKER.
-        # Or if we have multiple speakers, we try to guess.
+        # --- Step 3: Result Merging (MVP Strategy) ---
+        # Current Challenge:
+        # SenseVoiceSmall produces high-quality text but complex timestamp mapping.
+        # Pyannote produces precise speaker timestamps but no text.
         #
-        # Better: We return the full text associated with the FIRST speaker found, 
-        # or "Unknown" if no diarization.
-        
+        # Strategy:
+        # For this version, we identify the 'Dominant Speaker' (who spoke the most)
+        # and assign them to the transcript block.
+        #
+        # Future Roadmap:
+        # - Implement word-level alignment (e.g., via forced alignment)
+        #   to perfectly interleave speaker changes with text.
+
         dominant_speaker = "Unknown"
         if speakers_events:
-            # Simple heuristic: who spoke the longest?
+            # Determine dominant speaker by total duration
             speaker_durations = {}
             for event in speakers_events:
                 dur = event["end"] - event["start"]
@@ -146,11 +157,10 @@ class TranscriptionService:
                 speaker_durations[s] = speaker_durations.get(s, 0.0) + dur
             dominant_speaker = max(speaker_durations, key=speaker_durations.get)
 
-        # Construct final segment
-        # In a real app we would use an ASR model that produces timestamps (like Whisper) to interleave.
+        # Return as a single segment for V1
         segments = [{
             "start": 0.0,
-            "end": 0.0, # Placeholder
+            "end": 0.0, # Placeholder until alignment is implemented
             "text": raw_text,
             "speaker_id": dominant_speaker
         }]
