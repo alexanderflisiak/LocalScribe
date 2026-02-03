@@ -49,6 +49,8 @@
 3.  **Hugging Face Token**: Required for Speaker Diarization.
     *   Accept terms for `pyannote/speaker-diarization-3.1`.
     *   Create a `.credentials` file in root: `HF_TOKEN="hf_..."`.
+4.  **FFmpeg**: Required for audio processing.
+    *   `brew install ffmpeg`
 
 ### Installation
 

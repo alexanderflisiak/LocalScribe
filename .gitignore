@@ -34,7 +34,20 @@ local_scribe.db
 # Python Sidecar
 sidecar/__pycache__/
 sidecar/venv/
+sidecar/.venv/
 sidecar/.pytest_cache/
 sidecar/dist/
 sidecar/build/
 *.spec
+
+# Tauri/Rust
+src-tauri/target/
+src-tauri/gen/
+
+# macOS
+.DS_Store
+
+# App Data
+recordings/
+*.webm
+*.m4a

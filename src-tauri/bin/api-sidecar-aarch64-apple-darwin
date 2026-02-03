@@ -7,8 +7,11 @@ set -e
 # Get absolute path to the script directory
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
-# Resolve project root (src-tauri/bin -> src-tauri -> root)
-PROJECT_ROOT=$(cd "$SCRIPT_DIR/../../" && pwd)
+# Resolve project root
+# In dev, the script is in src-tauri/bin. We need to go up 3 levels to find project root if we are inside target/debug?
+# Actually, the error says PROJECT_ROOT is .../src-tauri.
+# So we need to go up one more level.
+PROJECT_ROOT=$(cd "$SCRIPT_DIR/../../../" && pwd)
 
 # Path to virtual environment and main script
 VENV_PATH="$PROJECT_ROOT/sidecar/.venv"

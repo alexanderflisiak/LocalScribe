@@ -10,7 +10,7 @@ The app records audio, identifies speakers (Diarization), transcribes text, and 
 - **Database:** SQLite (via `tauri-plugin-sql`) - Single file storage (`local_scribe.db`).
 - **AI Orchestration:**
   - **Text:** Ollama (serving `qwen2.5-coder:7b` locally).
-  - **Audio:** Python Sidecar (`sidecar/`) packaged via PyInstaller.
+  - **Audio:** Python Sidecar (`sidecar/`) managed via `uv`, packaged via PyInstaller.
   - **Models:** `SenseVoiceSmall` (STT) and `Pyannote 3.1` (Diarization).
 
 ## 3. Architecture & Data Flow

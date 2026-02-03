@@ -21,7 +21,7 @@ class MockMediaRecorder {
         this.stream = stream;
     }
 
-    start(timeslice?: number) {
+    start(_timeslice?: number) {
         this.state = 'recording';
     }
 
@@ -34,6 +34,10 @@ class MockMediaRecorder {
             }
         }, 0);
     }
+
+    static isTypeSupported(_mime: string) {
+        return true;
+    }
 }
 
 global.MediaRecorder = MockMediaRecorder as any;
@@ -41,7 +45,7 @@ global.MediaRecorder = MockMediaRecorder as any;
 // Mock Blob
 global.Blob = class {
     parts: any[];
-    constructor(parts: any[], options: any) {
+    constructor(parts: any[], _options: any) {
         this.parts = parts;
     }
     async arrayBuffer() {
@@ -53,8 +57,10 @@ global.Blob = class {
 Object.defineProperty(global.navigator, 'mediaDevices', {
     value: {
         getUserMedia: vi.fn().mockResolvedValue({
-            getTracks: () => [{ stop: vi.fn() }]
+            getTracks: () => [{ stop: vi.fn(), label: 'mock-track', enabled: true }],
+            getAudioTracks: () => [{ stop: vi.fn(), label: 'mock-track', enabled: true }]
         } as unknown as MediaStream),
+        enumerateDevices: vi.fn().mockResolvedValue([]),
     },
     writable: true,
 });
@@ -101,5 +107,38 @@ describe('useAudioRecorder Hook', () => {
         expect(savedPath).toBe(mockPath);
         expect(result.current.isRecording).toBe(false);
         expect(invoke).toHaveBeenCalledWith('save_audio', expect.any(Object));
+    });
+    it('should handle permission denied errors', async () => {
+        const { result } = renderHook(() => useAudioRecorder());
+
+        // Mock permission error
+        const permError = new Error('Permission denied');
+        (navigator.mediaDevices.getUserMedia as any).mockRejectedValueOnce(permError);
+
+        await act(async () => {
+            await result.current.startRecording();
+        });
+
+        expect(result.current.isRecording).toBe(false);
+        expect(result.current.error).toBeTruthy();
+    });
+
+    it('should handle save failures gracefully', async () => {
+        const { result } = renderHook(() => useAudioRecorder());
+
+        await act(async () => {
+            await result.current.startRecording();
+        });
+
+        // Mock save error from Rust
+        (invoke as any).mockRejectedValueOnce(new Error('Disk full'));
+
+        let savedPath: string | null = null;
+        await act(async () => {
+            savedPath = await result.current.stopRecording();
+        });
+
+        expect(savedPath).toBeNull();
+        expect(result.current.error).toBeTruthy();
     });
 });

@@ -36,6 +36,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger("sidecar")
 
+# CRITICAL: Redirect standard output to stderr to prevent 
+# libraries (funasr, torch, etc.) from polluting the pipe with logs.
+# We only write to the real stdout for the final JSON response.
+REAL_STDOUT = sys.stdout
+sys.stdout = sys.stderr
+
 
 class TranscriptionService:
     """Handles audio transcription (SenseVoice) and diarization (Pyannote)."""
@@ -116,6 +122,17 @@ class TranscriptionService:
             # Let's check what we get.
             raw_text = res[0].get("text", "") if res else ""
             
+            # Filter hallucinations (SenseVoice specific)
+            # e.g., <|nospeech|><|EMO_UNKNOWN|><|Event_UNK|>
+            import re
+            cleaned_text = re.sub(r"<\|.*?\|>", "", raw_text).strip()
+            
+            if not cleaned_text or len(cleaned_text) < 2:
+                # If it's just silence/garbage, don't return garbage
+                cleaned_text = "" 
+                
+            raw_text = cleaned_text
+
         except Exception as e:
             raise RuntimeError(f"ASR failed: {e}") from e
 
@@ -196,9 +213,20 @@ def main() -> None:
 
     finally:
         try:
-            sys.stdout.buffer.write(orjson.dumps(output))
-            sys.stdout.write("\n")
-            sys.stdout.flush()
+            # Write only the final result to the actual stdout pipe
+            # We use buffer for bytes writing (orjson dumps bytes)
+            # or we can decode. orjson returns bytes.
+            # REAL_STDOUT.buffer might not exist if we swapped it? 
+            # REAL_STDOUT is the original sys.stdout object.
+            if hasattr(REAL_STDOUT, 'buffer'):
+                REAL_STDOUT.buffer.write(orjson.dumps(output))
+                REAL_STDOUT.buffer.write(b"\n")
+                REAL_STDOUT.buffer.flush()
+            else:
+                # Fallback for text mode
+                REAL_STDOUT.write(orjson.dumps(output).decode('utf-8'))
+                REAL_STDOUT.write("\n")
+                REAL_STDOUT.flush()
         except Exception as e:
             logger.critical(f"Failed to write output: {e}")
             sys.exit(1)

@@ -91,7 +91,7 @@ pub async fn summarize_text(text: String) -> Result<String, String> {
         .post("http://localhost:11434/api/generate")
         .json(&serde_json::json!({
             "model": "qwen2.5-coder:7b",
-            "prompt": format!("Summarize the following text concisely:\n\n{}", text),
+            "prompt": build_summary_prompt(&text),
             "stream": false
         }))
         .send()
@@ -139,37 +139,94 @@ pub async fn save_audio<R: Runtime>(
     use std::io::Write;
     use tauri::Manager;
 
-    println!("Saving audio file: {} ({} bytes)", filename, payload.len());
+    println!(
+        "RUST: save_audio called. Filename: {}, Payload size: {}",
+        filename,
+        payload.len()
+    );
+
+    validate_payload(&payload)?;
 
     let app_data_dir = app.path().app_data_dir().map_err(|e| {
         let msg = format!("Failed to resolve AppData dir: {}", e);
-        println!("{}", msg);
+        println!("RUST: {}", msg);
         msg
     })?;
 
+    println!("RUST: AppData dir resolved to: {:?}", app_data_dir);
+
+    // Ensure the AppData directory itself exists (sometimes not created by default)
+    if !app_data_dir.exists() {
+        println!("RUST: AppData dir does not exist. Creating...");
+        std::fs::create_dir_all(&app_data_dir).map_err(|e| {
+            let msg = format!("Failed to create AppData dir: {}", e);
+            println!("RUST: {}", msg);
+            msg
+        })?;
+    }
+
     let recordings_dir = app_data_dir.join("recordings");
     if !recordings_dir.exists() {
+        println!("RUST: Creating recordings dir at {:?}", recordings_dir);
         std::fs::create_dir_all(&recordings_dir).map_err(|e| {
             let msg = format!("Failed to create recordings dir: {}", e);
-            println!("{}", msg);
+            println!("RUST: {}", msg);
             msg
         })?;
     }
 
     let file_path = recordings_dir.join(&filename);
+    println!("RUST: Creating file at {:?}", file_path);
+
     let mut file = std::fs::File::create(&file_path).map_err(|e| {
         let msg = format!("Failed to create file: {}", e);
-        println!("{}", msg);
+        println!("RUST: {}", msg);
         msg
     })?;
 
     file.write_all(&payload).map_err(|e| {
         let msg = format!("Failed to write file content: {}", e);
-        println!("{}", msg);
+        println!("RUST: {}", msg);
         msg
     })?;
 
     let absolute_path = file_path.to_string_lossy().to_string();
-    println!("File saved successfully to: {}", absolute_path);
+    println!("RUST: File saved successfully to: {}", absolute_path);
     Ok(absolute_path)
+}
+
+fn validate_payload(payload: &[u8]) -> Result<(), String> {
+    if payload.is_empty() {
+        return Err("Payload is empty".to_string());
+    }
+    Ok(())
+}
+
+fn build_summary_prompt(text: &str) -> String {
+    format!("Summarize the following text concisely:\n\n{}", text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_payload_success() {
+        let payload = vec![1, 2, 3];
+        assert!(validate_payload(&payload).is_ok());
+    }
+
+    #[test]
+    fn test_validate_payload_empty() {
+        let payload = vec![];
+        assert!(validate_payload(&payload).is_err());
+    }
+
+    #[test]
+    fn test_build_summary_prompt() {
+        let text = "Hello world";
+        let prompt = build_summary_prompt(text);
+        assert!(prompt.contains("Summarize"));
+        assert!(prompt.contains("Hello world"));
+    }
 }
