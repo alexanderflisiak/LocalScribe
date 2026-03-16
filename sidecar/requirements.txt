@@ -1,7 +1,0 @@
-funasr
-modelscope
-orjson
-pyannote-audio
-torch
-torchaudio
-typing_extensions

@@ -1,88 +1,67 @@
-# 🎙️ Local Scribe
-
+# 🎙️ Local Scribe (Native Apple Silicon Edition)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-![Tauri](https://img.shields.io/badge/Tauri-2.0-24C8D6?style=flat-square&logo=tauri&logoColor=white)
-![React](https://img.shields.io/badge/React-19.0-61DAFB?style=flat-square&logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Rust](https://img.shields.io/badge/Rust-1.75+-000000?style=flat-square&logo=rust&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
-![Tailwind](https://img.shields.io/badge/Tailwind-4.0-38B2AC?style=flat-square&logo=tailwindcss&logoColor=white)
+![Swift](https://img.shields.io/badge/Swift-5.9-F05138?style=flat-square&logo=swift&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-14+-000000?style=flat-square&logo=apple&logoColor=white)
+![CoreML](https://img.shields.io/badge/CoreML-Optimized-38B2AC?style=flat-square&logo=apple&logoColor=white)
 
+**Local Scribe** has been completely rewritten from the ground up to be a blazing-fast, ultra-low memory, native macOS application optimized specifically for **Apple Silicon**.
 
-
-**Local Scribe** is a privacy-first, verified offline meeting assistant tailored for **Apple Silicon**. It records, transcribes, identifies speakers (Diarization), and summarizes conversations—all without sending a single byte of data to the cloud.
+It records, transcribes, and summarizes conversations entirely offline, using the power of the Apple Neural Engine.
 
 ![Local Scribe Demo](demo.png)
 *Minimalist interface showing real-time transcription and speaker identification.*
 
 ---
 
-## ✨ Features
+## ✨ Why the Native Rewrite?
 
--   **🔒 Privacy First**: All processing happens on-device. No cloud APIs, no data leaks.
--   **🧠 Local AI Stack**:
-    -   **STT**: Alibaba's `SenseVoiceSmall` for high-accuracy transcription.
-    -   **Diarization**: `pyannote.audio` (v3.1) for distinct speaker identification.
-    -   **LLM**: Integrates with local **Ollama** instances (e.g., `qwen2.5-coder`) for summarization.
--   **⚡ Performance**: Built on **Tauri v2** (Rust) for minimal RAM usage (~30MB idle).
--   **🎨 Minimalist UI**: A clean, "Notion-style" interface focused on readability.
+The previous version relied on Tauri, React, Python, and PyTorch. This was incredibly resource-heavy (taking GBs of RAM and maxing out CPUs). By rewriting the entire stack natively in Swift:
+- **Memory usage dropped drastically** (No more Python runtime or Electron/WebViews).
+- **Transcription speed increased massively** by using `WhisperKit` (CoreML inference natively on Apple Silicon).
+- **Audio capture is more reliable** via native `AVFoundation`.
 
 ## 🛠️ Tech Stack
 
 | Component | Technology | Role |
 | :--- | :--- | :--- |
-| **Shell** | Tauri v2 (Rust) | Native OS integration, Child Process management |
-| **Frontend** | React + TypeScript | UI, State Management, Audio Visualization |
-| **Styling** | Tailwind CSS v4 | Minimalist Design System |
-| **Sidecar** | Python 3.12 | Runs PyTorch models (SenseVoice, Pyannote) |
-| **Database** | SQLite | Local metadata and transcript storage |
-| **AI** | Ollama | Local LLM Inference for Summarization |
+| **App & UI** | Swift & SwiftUI | Native OS integration, minimal memory footprint |
+| **Audio** | AVFoundation | Low-level microphone capture (`.m4a`) |
+| **Transcription** | WhisperKit (CoreML) | Blazing-fast local STT (`openai_whisper-base`) |
+| **Summarization** | Ollama | Local LLM Inference for Summarization |
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-1.  **Node.js** (v18+) & **Rust** (v1.75+)
+1.  **Xcode 15+** (Required for Swift 5.9 and macOS 14 SDKs)
 2.  **Ollama**: Installed and running (`ollama serve`).
     *   Pull a model: `ollama pull qwen2.5-coder:7b` (or similar).
-3.  **Hugging Face Token**: Required for Speaker Diarization.
-    *   Accept terms for `pyannote/speaker-diarization-3.1`.
-    *   Create a `.credentials` file in root: `HF_TOKEN="hf_..."`.
-4.  **FFmpeg**: Required for audio processing.
-    *   `brew install ffmpeg`
 
-### Installation
+### Installation & Running
+
+This project uses the Swift Package Manager. You do not need Cocoapods or complicated build scripts.
 
 ```bash
 # 1. Clone the repo
 git clone https://github.com/your-username/local-scribe.git
 cd local-scribe
 
-# 2. Install Frontend Dependencies
-npm install
+# 2. Open in Xcode
+open Package.swift
 
-# 3. Setup Python Sidecar
-cd sidecar
-uv sync  # Uses 'uv' for fast dependency management
-# OR
-pip install -r requirements.txt
-
-# 4. Run Development Mode
-cd ..
-npm run tauri dev
+# 3. Build & Run
+# Select "LocalScribeApp" as the target and hit Cmd+R (Play Button)
 ```
 
 ## 📐 Architecture
 
 ```mermaid
 graph TD
-    UI[React Frontend] <-->|save_audio| Rust[Tauri Rust Backend]
-    Rust <-->|Events| UI
-    Rust <-->|Stdin/Stdout| Py[Python Sidecar]
-    Py -->|Load| Models[SenseVoice & Pyannote]
-    Rust <-->|HTTP| Ollama[Local LLM]
-    Rust <-->|SQL| DB[SQLite]
+    UI[SwiftUI Interface] -->|AVFoundation| Audio[Audio Recorder]
+    Audio -->|m4a file| WK[WhisperKit / CoreML]
+    WK -->|Text| LLM[Ollama Local REST API]
+    LLM -->|Summary| UI
 ```
 
 ## 🛡️ License

@@ -1,41 +1,39 @@
-# Local Scribe - Project Blueprint & Architecture
+# Local Scribe - Project Blueprint & Architecture (Swift Rewrite)
 
 ## 1. Project Goal
-Build a local-first, privacy-focused meeting assistant that runs entirely on Apple Silicon (MacBook) and Standard CPUs (ThinkPad). 
-The app records audio, identifies speakers (Diarization), transcribes text, and generates summaries using a local LLM.
+Build a local-first, privacy-focused meeting assistant that runs as a blazing-fast native macOS application on Apple Silicon.
 
 ## 2. Tech Stack (Strict Constraints)
-- **Core Shell:** Tauri v2 (Rust) - Chosen for low RAM usage (~30MB idle).
-- **Frontend:** React + TypeScript + Tailwind CSS.
-- **Database:** SQLite (via `tauri-plugin-sql`) - Single file storage (`local_scribe.db`).
+- **Language:** Swift 5.9
+- **UI Framework:** SwiftUI
+- **Audio Capture:** AVFoundation
 - **AI Orchestration:**
-  - **Text:** Ollama (serving `qwen2.5-coder:7b` locally).
-  - **Audio:** Python Sidecar (`sidecar/`) managed via `uv`, packaged via PyInstaller.
-  - **Models:** `SenseVoiceSmall` (STT) and `Pyannote 3.1` (Diarization).
+  - **Transcription (STT):** WhisperKit (CoreML wrapper for whisper.cpp, optimized for M-series Neural Engine).
+  - **Summarization:** Ollama (via native URLSession REST calls to localhost:11434).
+- **Package Management:** Swift Package Manager (SPM).
 
 ## 3. Architecture & Data Flow
-1. **Frontend (React):** - Captures audio via `MediaRecorder`.
-   - Saves `.webm` chunks to `$APPDATA/recordings/`.
-   - Writes metadata to SQLite.
-2. **Backend (Tauri/Rust):** - Spawns the Python Sidecar as a child process.
-   - Handles file saving via `save_audio` command (bypassing flaky JS filesystem APIs).
-   - Bridges events between Python (stdout) and React (window events).
-3. **Sidecar (Python):** - Inputs: Audio file path.
-   - Outputs: JSON object with segments `[{ start, end, text, speaker_id }]`.
-4. **Publishing:** - Future feature: Export summaries to Google Docs/Notion via REST API.
+1. **Frontend (SwiftUI):**
+   - Captures audio via `AVAudioRecorder` directly to `Documents/recording.m4a`.
+   - Minimalist, Notion-style single-window application.
+2. **Transcription Service:**
+   - Upon stop, loads the `m4a` file directly into WhisperKit.
+   - CoreML executes inference on the Apple Neural Engine, returning a full string.
+3. **Summarization Service:**
+   - Takes the raw transcript string and pushes it to local Ollama via native URLRequest.
+   - Decodes the JSON response and updates the UI asynchronously.
 
 ## 4. Current Progress
-- [x] Tauri v2 initialized.
-- [x] SQLite database wired (`src/lib/db.ts`) with basic CRUD.
-- [x] Audio Recorder implemented (`src/lib/recorder.ts`) as `useAudioRecorder` hook, saving to AppData via Rust command `save_audio`.
-- [x] Python Sidecar implemented (`sidecar/main.py`) with SenseVoice.
-- [x] Integrate Local LLM (Ollama) for Summarization.
-- [x] Implement Audio Diarization (Pyannote).
-- [x] Update UI to display Speaker Labels.
-- [x] Redesign UI (Notion Style).
-- [ ] **Next Step:** Implement Export (Markdown/PDF).
+- [x] Deleted legacy web/Rust/Python stack.
+- [x] Initialized Swift Package Manager structure (`Package.swift`).
+- [x] Built core SwiftUI Interface (`ContentView.swift`).
+- [x] Implemented native `AVFoundation` recording.
+- [x] Implemented native `WhisperKit` CoreML transcription.
+- [x] Connected native `URLSession` to Ollama for summarization.
+- [x] Written base XCTest suite.
+- [ ] **Next Step:** Implement offline native Diarization (speaker identification) via SFSpeechRecognizer or custom CoreML pipeline (as this was removed during the speed optimization pivot).
 
 ## 5. Development Rules for Agent
-- **Strict Typing:** No `any`. Use Interfaces for all data models.
-- **Testing:** Use `vitest` with mocks for Tauri plugins.
-- **Permissions:** Always check `capabilities/default.json` when adding OS features.
+- **Native First:** Never introduce web-views (WKWebView) or Python sidecars.
+- **Concurrency:** Use modern Swift Concurrency (`async/await`, `Task`) to prevent blocking the main thread during ML inference.
+- **Error Handling:** Always gracefully handle missing permissions (Microphone) or offline models.
